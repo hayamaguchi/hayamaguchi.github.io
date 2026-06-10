@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Merrill's Marauders - Walaubum Mission</title>
+
+    <!-- Leaflet and stylesheet -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.2.0/leaflet.css"
+      type="text/css"
+      crossorigin=""
+    />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.2.0/leaflet.js"
+      crossorigin=""
+    ></script>
+
+    <!-- Stamen basemaps -->
+    <script
+      type="text/javascript"
+      src="http://maps.stamen.com/js/tile.stamen.js?v1.3.0"
+    ></script>
+
+    <!-- Load w3.js from w3schools -->
+    <script src="w3.js"></script>
+    <link rel="stylesheet" href="w3.css" type="text/css" />
+
+    <!-- Load w3.CSS stylesheet from w3schools -->
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
+
+    <!-- Load limit.zoom plugin (https://github.com/Zverik/Leaflet.LimitZoom) -->
+    <!-- This plug interpolates between available map tile zoom levels -->
+    <script src="Leaflet.LimitZoom.js"></script>
+    <script src="Leaflet.ContinuousZoom.js"></script>
+
+    <!-- Font Awesome stylesheet req'd for ZoomHome plugin -->
+    <link
+      rel="stylesheet"
+      href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css"
+    />
+
+    <!-- ZoomHome plugin JS and CSS (new Zoom button with HOME button -->
+    <link rel="stylesheet" href="leaflet.zoomhome.css" />
+    <script src="leaflet.zoomhome.min.js"></script>
+
+    <!-- Load list of slides for slideshow -->
+    <script src="slidePics.js"></script>
+
+    <!-- Project Stylesheet -->
+    <link rel="stylesheet" href="project.css" type="text/css" />
+
+    <!-- GeoJSON layers disguised as JS files -->
+
+    <!-- var missions: merged routes into Burma and the three missions -->
+    <script src="lyr/missions.js"></script>
+
+    <!-- var airdrops: location of airdrops during first mission (Walaubum) -->
+    <script src="lyr/airdrops.js"></script>
+
+    <!-- var POI: notable locations for the first mission (Walaubum mission) -->
+    <script src="lyr/poi.js"></script>
+
+    <!-- Now the main script for this map -->
+    <script type="text/javascript">
+      var map;
+
+      function init() {
+        // create map and set center and zoom level
+        map = new L.map('mapid', {
+          zooms: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+          zoomControl: false // disable stock zoom button
+        });
+        map.setView([26.5, 96.0], 8); // Centered around local topo map
+
+        // set min and max zoom levels
+        map.options.minZoom = 3;
+        map.options.maxZoom = 14;
+
+        // Add zoomHome zoom control with home button
+        var zoomHome = L.Control.zoomHome();
+        zoomHome.addTo(map);
+
+        // add scale bar
+        L.control.scale().addTo(map);
+
+        // create a little div that displays mouse coords as it moves
+        // from Leaflet Cookbook by Numa Gremling, Locate Press LLC, 2019
+        var div = document.createElement('div');
+        div.id = 'coordsDiv';
+        div.style.position = 'absolute';
+        div.style.top = '0';
+        div.style.right = '0';
+        div.style.zIndex = '999';
+        div.style.backgroundColor = 'white';
+        div.style.opacity = '0.6';
+        div.style.border = '1px solid #ff0000';
+        div.style.color = 'red';
+        div.style.fontWeight = 'bold';
+        document.getElementById('mapid').appendChild(div);
+        map.on('mousemove', function(e) {
+          var latitude = e.latlng.lat.toFixed(6);
+          var longitude = e.latlng.lng.toFixed(6);
+          document.getElementById('coordsDiv').innerHTML =
+            latitude + ', ' + longitude;
+        });
+
+        // add map zoom level display below the mouse coordinate DIV
+        // from https://leafletjs.com/examples/zoom-levels/example-fractional.html
+        var ZoomViewer = L.Control.extend({
+          onAdd: function() {
+            var container = L.DomUtil.create('div');
+            var gauge = L.DomUtil.create('div');
+            container.style.width = '90px';
+            container.style.top = '10px';
+            container.style.right = '0';
+            container.style.background = 'rgba(255,255,255,0.6)';
+            container.style.textAlign = 'left';
+            container.style.color = 'red';
+            container.style.fontWeight = 'bold';
+            container.style.border = '1px solid #00ff00';
+            container.style.zIndex = '999';
+            map.on('zoomstart zoom zoomend', function(ev) {
+              gauge.innerHTML = 'Zoom level: ' + map.getZoom();
+            });
+            container.appendChild(gauge);
+            return container;
+          }
+        });
+        new ZoomViewer().addTo(map);
+
+        // Insert a map legend
+        // Thanks to John Haakseth at  https://codepen.io/haakseth/pen/KQbjdO
+        var legend = L.control({ position: 'bottomleft' });
+
+        legend.onAdd = function(map) {
+          var div = L.DomUtil.create('div', 'legend');
+          div.innerHTML +=
+            '<h4>Legend</h4><h2>Marauders<br>Walaubum Mission</h2>';
+          div.innerHTML +=
+            '<i class="circle" style="background: #0000ff"></i><span>Non-combat POI</span><br>';
+          div.innerHTML +=
+            '<i class="circle" style="background: #ff0000"></i><span>Combat POI</span><br>';
+          div.innerHTML +=
+            '<i class="icon" style="background-image: url(images/chute2.png);background-repeat: no-repeat;"></i><span>Supply Airdrops</span><br>';
+          div.innerHTML +=
+            '<i class="line" style="background: #e60000"></i><span>March into Burma</span><br>';
+          div.innerHTML +=
+            '<i class="line" style="background: #0000ff"></i><span>Walaubum Mission</span><br>';
+          div.innerHTML +=
+            '<i class="line" style="background: #006600"></i><span>Shadazup Mission</span><br>';
+          div.innerHTML +=
+            '<i class="line" style="background: #000000"></i><span>Myitkyina Mission</span><br>';
+          return div;
+        };
+
+        legend.addTo(map);
+
+        // Populate empty DIVs
+        var initPicHTML =
+          '<img src=' +
+          'images/mmPatch.png' +
+          ' alt="Drop Pic" height="300" width="170" />';
+        document.getElementById('text').innerHTML = initPicHTML;
+        // Populate the photo area with a slideshow (initially) and also when selection (parachute) is reset
+        document.getElementById('photo').innerHTML = slides;
+        w3.slideshow('.mmSlides', 5000);
+
+        // create an osm tile layer as an alternative basmap
+        var tilesOSM = L.tileLayer(
+          'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          {
+            maxZoom: 16,
+            attribution:
+              '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          }
+        );
+
+        // create and add the tile basemap layer (Stamen Terrain)
+        var tilesStamen = L.tileLayer(
+          'http://tile.stamen.com/terrain/{z}/{x}/{y}.jpg',
+          {
+            attribution:
+              '<a id="home-link" target="_top" href="http://maps.stamen.com/">Map tiles</a> by <a target="_top" href="http://stamen.com">Stamen Design</a>, under <a target="_top" href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data &copy; <a target="_top" href="http://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>.'
+          }
+        );
+        //tilesStamen.addTo(map);
+
+        // create and add the ArcGIS World Topo basemap
+        var tilesTopo = L.tileLayer(
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+          {
+            attribution:
+              'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer">ArcGIS</a>'
+          }
+        );
+        //tilesTopo.addTo(map);
+
+        // create and add the National Geographic basemap served by ArcGIS
+        var tilesWorld = L.tileLayer(
+          'https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}',
+          {
+            attribution:
+              'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServerr">Nat Geo</a>'
+          }
+        );
+        tilesWorld.addTo(map);
+
+        // Add the US DOD 1967 1:250,000 scale Burma Topo Maps (6 sheets)
+        urlTile = '1967-46-04/{z}/{x}/{y}.png';
+        var ng4604 = L.tileLayer(urlTile, {
+          nativeZooms: [7, 8, 9, 10, 11, 12],
+          attribution: "US DOD Nat'l Imagery & Mapping Agency"
+        });
+        ng4604.addTo(map);
+
+        urlTile = '1967-47-01/{z}/{x}/{y}.png';
+        var ng4701 = L.tileLayer(urlTile, {
+          nativeZooms: [7, 8, 9, 10, 11, 12],
+          attribution: "US DOD Nat'l Imagery & Mapping Agency"
+        });
+        ng4701.addTo(map);
+
+        urlTile = '1967-46-08/{z}/{x}/{y}.png';
+        var ng4608 = L.tileLayer(urlTile, {
+          nativeZooms: [7, 8, 9, 10, 11, 12],
+          attribution: "US DOD Nat'l Imagery & Mapping Agency"
+        });
+        ng4608.addTo(map);
+
+        urlTile = '1967-47-05/{z}/{x}/{y}.png';
+        var ng4705 = L.tileLayer(urlTile, {
+          nativeZooms: [7, 8, 9, 10, 11, 12],
+          attribution: "US DOD Nat'l Imagery & Mapping Agency"
+        });
+        ng4705.addTo(map);
+
+        urlTile = '1967-46-12/{z}/{x}/{y}.png';
+        var ng4612 = L.tileLayer(urlTile, {
+          nativeZooms: [7, 8, 9, 10, 11, 12],
+          attribution: "US DOD Nat'l Imagery & Mapping Agency"
+        });
+        ng4612.addTo(map);
+
+        urlTile = '1967-47-09/{z}/{x}/{y}.png';
+        var ng4709 = L.tileLayer(urlTile, {
+          nativeZooms: [7, 8, 9, 10, 11, 12],
+          attribution: "US DOD Nat'l Imagery & Mapping Agency"
+        });
+        ng4709.addTo(map);
+
+        // Styles for line layers (march routes)
+        // 0 is march into Burma from India; 1 is first mission;
+        // 2 is second mission; 3 is third mission
+        function routeStyle(feature) {
+          var colorToUse;
+          var route = feature.properties.Mission;
+
+          if (route === 0) colorToUse = '#e60000';
+          else if (route === 1) colorToUse = '#0000ff';
+          else if (route === 2) colorToUse = '#006600';
+          else if (route === 3) colorToUse = '#000000';
+          else colorToUse = '#000000';
+          return {
+            color: colorToUse,
+            weight: 3
+          };
+        }
+        // Create layer and add it to the map
+        var lyrMissions = L.geoJSON(missions, {
+          style: routeStyle
+        });
+        lyrMissions.addTo(map);
+
+        // declare some global variables
+        var selection;
+        var selectedLayer;
+        var origColor;
+
+        // Now work on the POIs styling and add to map
+        // Generic circle style for POI layer:
+        var poiStyle = {
+          radius: 7,
+          color: 'navy',
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.75
+        };
+
+        // handle click and mouseover events on POI features
+        function poiOnEachFeature(feature, layer) {
+          layer.on({
+            zoomend: function(e) {
+              var currentZoom = map.getZoom();
+              if (currentZoom < 10) {
+                poiStyle.radius = 7;
+              } else if (currentZoom < 13) {
+                poiStyle.radius = 9;
+              } else {
+                poiStyle.radius = 10;
+              }
+              e.feature.setStyle(poiStyle);
+              console.log(
+                'poiStyle.radius = ' +
+                  poiStyle.radius +
+                  ' currentZoom = ' +
+                  currentZoom
+              );
+            },
+            click: function(e) {
+              if (selection) {
+                resetStyles();
+              }
+              // changes the color of the cirule marker to green
+              poiStyle.fillColor = 'green';
+              e.target.setStyle(poiStyle);
+              selection = e.target;
+              selectedLayer = lyrPOI;
+
+              // pan and zoom to click location at zoom level 11
+              map.setView(e.latlng, 12); // Centered around selected feature
+              //poiStyle.radius = 10;
+              e.target.setStyle(poiStyle);
+
+              // Insert some HTML with the feature name
+              getFeatureData(feature);
+
+              // Show photo
+              getFeaturePhoto(feature);
+
+              // stop click event from being propagated further
+              L.DomEvent.stopPropagation(e);
+            },
+            mouseover: function(e) {
+              if (!selection) {
+                origColor = poiStyle.fillColor;
+                console.log(origColor);
+                poiStyle.fillColor = 'yellow';
+                poiStyle.opacity = 0.25;
+                e.target.setStyle(poiStyle);
+              }
+            },
+            mouseout: function(e) {
+              if (!selection) {
+                poiStyle.fillColor = origColor;
+                poiStyle.opacity = 1.0;
+                e.target.setStyle(poiStyle);
+              }
+            }
+          });
+        }
+
+        // style the point depending on Clash is true or false
+        // If there was combat at that location Combat = true (boolean) and the
+        // fillColor = 'red' otherwise fillColor = 'blue'
+        lyrPOI = new L.geoJSON(POI, {
+          pointToLayer: function(feature, latlng) {
+            var combat = feature.properties.Combat;
+            if (combat) {
+              poiStyle.fillColor = 'red';
+            } else {
+              poiStyle.fillColor = 'blue';
+            }
+            return L.circleMarker(latlng, poiStyle);
+          },
+          onEachFeature: poiOnEachFeature
+        });
+
+        // now add POI layer to the map
+        lyrPOI.addTo(map);
+
+        // Now work on the airdrops
+        var lyrAirdrops;
+        // Make generic chute icon class
+        var chuteIcon = L.Icon.extend({
+          options: {
+            iconSize: [30, 36], // size of the icon (width, height)
+            iconAnchor: [15, 31], // point of the icon which will correspond to marker's location
+            popupAnchor: [0, -30] // point from which the popup should open relative to the iconAnchor
+          }
+        });
+
+        // Now create the selected and unselected chute icons by specifying separate URLs
+        var normalChute = new chuteIcon({ iconUrl: 'images/chute.svg' });
+        var selectedChute = new chuteIcon({
+          iconUrl: 'images/chute_selected.svg'
+        });
+
+        // handle click events on airdrop features
+        function airdropsOnEachFeature(feature, layer) {
+          layer.on({
+            click: function(e) {
+              if (selection) {
+                resetStyles();
+              }
+
+              selection = e.target;
+              selectedLayer = lyrAirdrops;
+              e.target.setIcon(selectedChute);
+
+              // pan and zoom to click location at zoom level 11
+              map.setView(e.latlng, 11); // Centered around selected feature
+
+              // Insert some HTML with the feature name
+              getAirdropData(feature);
+
+              // Show photo
+              getFeaturePhoto(feature);
+
+              // stop click event from being propagated further
+              L.DomEvent.stopPropagation(e);
+            }
+          });
+        }
+
+        // add the airdrops GeoJSON layer using the airdrops variable from airdrops.js
+        lyrAirdrops = new L.geoJSON(airdrops, {
+          pointToLayer: function(feature, latlng) {
+            return L.marker(latlng, { icon: normalChute });
+          },
+          onEachFeature: airdropsOnEachFeature
+        });
+
+        lyrAirdrops.addTo(map);
+
+        // Now create a layer switcher by runnning a function defined below
+        createLayerSwitcher();
+
+        // function to create a layer switcher control
+        function createLayerSwitcher() {
+          // define basemap and thematic layers and add layer switcher control
+          var basemaps = {
+            'OSM Plain Vanilla': tilesOSM,
+            'ArcGIS Topo': tilesTopo,
+            'National Geographic': tilesWorld
+          };
+          var overlays = {
+            'Topo NG46-04': ng4604,
+            'Topo NG46-08': ng4608,
+            'Topo NG46-12': ng4612,
+            'Topo NG47-01': ng4701,
+            'Topo NG47-05': ng4705,
+            'Topo NG47-09': ng4709,
+            'March Routes': lyrMissions,
+            'Mission POIs': lyrPOI,
+            'Mission Airdrops': lyrAirdrops
+          };
+          L.control.layers(basemaps, overlays).addTo(map);
+        }
+
+        // handle clicks on the map that didn't hit a feature
+        map.addEventListener('click', function(e) {
+          if (selection) {
+            resetStyles();
+            selection = null;
+          }
+        });
+
+        // Function to set the old selected feature back to its original symbol.
+        // It resets the chute symbol to the normal one, and reinstates the slide show
+        // Used when an empty map area is clicked.
+        function resetStyles() {
+          if (selectedLayer === lyrAirdrops) {
+            selection.setIcon(normalChute);
+          } else if (selectedLayer === lyrPOI) {
+            selectedLayer.resetStyle(selection);
+          }
+          // Reinstate the slide show and the Marauder patch
+          var picHTML =
+            '<img src=' + 'images/mmPatch.png' + ' height="300" width="170" />';
+          document.getElementById('text').innerHTML = picHTML;
+          document.getElementById('photo').innerHTML = slides;
+          w3.slideshow('.mmSlides', 5000);
+        }
+
+        // function to build the HTML for the airdrop data to be placed in the "text" DIV
+        function getAirdropData(currentFeature) {
+          var dropLoc = currentFeature.properties.Location;
+          var dropGoodies = currentFeature.properties.Drop;
+          var dropDate = currentFeature.properties.Date;
+          var tblHTML = '<h4><font size=5>Airdrop Details</font></h4>';
+          tblHTML += '<table width="325"><tr>';
+          tblHTML += '<td width="30%" style="text-align:right"><b>Date</b>';
+          tblHTML +=
+            '</td><td width="70%" style="text-align:left; padding-left:10px">' +
+            dropDate +
+            '</td></tr>';
+          tblHTML +=
+            '<tr><td width="30%" style="text-align:right"><b>Location</b></td>';
+          tblHTML +=
+            '<td width="70%" style="text-align:left; padding-left:10px">' +
+            dropLoc +
+            '</td></tr>';
+          tblHTML +=
+            '<tr><td width="30%" style="text-align:right"><b>&nbsp;</b></td>';
+          tblHTML +=
+            '<td width="70%" style="text-align:left; padding-left:10px">&nbsp;</td></tr>';
+          tblHTML +=
+            '<tr><td width="30%" style="text-align:right"><b>Items</b></td>';
+          tblHTML +=
+            '<td width="70%" style="text-align:left; padding-left:10px">' +
+            dropGoodies +
+            '</td></tr></table>';
+          document.getElementById('text').innerHTML = tblHTML;
+        }
+
+        // function to build the HTML for the POI data to be placed in the "text" DIV
+        function getFeatureData(currentFeature) {
+          var where = currentFeature.properties.Name;
+          var what = currentFeature.properties.Event;
+          var when = currentFeature.properties.mmDate;
+          var picFile = currentFeature.properties.Photo;
+          var picCaption = currentFeature.properties.Caption;
+          var tblHTML = '<h4><font size=5>Event Details</font></h4>';
+          tblHTML += '<table width="325">';
+          tblHTML +=
+            '<tr><td width="30%" style="text-align:right"><b>Date</b></td>';
+          tblHTML +=
+            '<td width="70%" style="text-align:left; padding-left:10px">' +
+            when +
+            '</td></tr>';
+          tblHTML +=
+            '<tr><td width="30%" style="text-align:right"><b>Location</b></td>';
+          tblHTML +=
+            '<td width="70%" style="text-align:left; padding-left:10px">' +
+            where +
+            '</td></tr>';
+          tblHTML +=
+            '<tr><td width="30%" style="text-align:right"><b>Event</b></td>';
+          tblHTML +=
+            '<td width="70%" style="text-align:left; padding-left:10px">' +
+            what +
+            '</td></tr>';
+          tblHTML +=
+            '<tr><td width="30%" style="text-align:right"><b>Caption</b></td>';
+          tblHTML +=
+            '<td width="70%" style="text-align:left; padding-left:10px">' +
+            picCaption +
+            '</td></tr></table>';
+          document.getElementById('text').innerHTML = tblHTML;
+        }
+
+        // function to place a photo for the airdrop in the "photo" DIV
+        function getFeaturePhoto(currentFeature) {
+          var featurePic = currentFeature.properties.Photo;
+          var picHTML = '<img src=' + featurePic + '>';
+          document.getElementById('photo').innerHTML = picHTML;
+        }
+      }
+    </script>
+  </head>
+  <body onload="init()">
+    <div id="container">
+      <div id="main">
+        <div id="title">
+          <img src="images/banner.png" height="48" />
+        </div>
+        <div id="content_container">
+          <div id="mapid"></div>
+          <div id="right_container">
+            <div id="photo"></div>
+            <div id="text"></div>
+          </div>
+          <!-- End of "right_container" -->
+        </div>
+        <!-- End of "content_container" -->
+      </div>
+      <!-- End of "main" -->
+    </div>
+    <!-- End of "container" -->
+  </body>
+</html>
